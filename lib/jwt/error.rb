@@ -78,4 +78,17 @@ module JWT
 
   # Raised when a JWK uses a key type (kty) that this library does not support.
   class UnsupportedKeyType < JWKError; end
+
+  # The CertificateChainError class is raised when the x5c certificate chain
+  # of a JWK cannot be verified against the caller-provided trust anchors.
+  class CertificateChainError < JWKError; end
+
+  # The CertificateKeyMismatchError class is raised when the public key of the
+  # leaf x5c certificate does not match the public key parameters of the JWK.
+  class CertificateKeyMismatchError < JWKError; end
+
+  # The CertificateThumbprintError class is raised when a JWK certificate
+  # thumbprint (x5t or x5t#S256) is malformed or does not match the leaf
+  # x5c certificate.
+  class CertificateThumbprintError < JWKError; end
 end

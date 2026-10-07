@@ -740,6 +740,53 @@ jwks = JWT::JWK::Set.new(jwks_hash)
 jwks_hash = jwks.export
 ```
 
+### Binding JWKs to X.509 certificates
+
+A received JWK may carry public key parameters (`n`/`e` or `crv`/`x`/`y`) alongside an `x5c`
+certificate chain and certificate thumbprints (`x5t`, `x5t#S256`). When the `x5c` import option
+is given, all of them are verified to describe the same key before the JWK is imported:
+
+- the `x5c` chain is verified, offline, against caller-provided trusted root certificates
+  (and CRLs, when given) at a caller-provided verification time. A root certificate carried
+  in `x5c` itself is never trusted on its own;
+- the certificates in `x5c` must be in order (leaf first) and use only allowed
+  signature algorithms;
+- the leaf certificate public key must match the JWK public key parameters;
+- `x5t` (SHA-1) and `x5t#S256` (SHA-256), when present, must match the DER digest
+  of the leaf certificate.
+
+A JWK that fails any of these checks raises and is never imported into a key set
+used for verification. JWKs without an `x5c` member are imported as before.
+
+```ruby
+jwk_hash = {
+  kty: 'RSA',
+  n: '0vx7agoebGc...', e: 'AQAB',
+  x5c: ['MIIDXTCCAkWgAwIBAgIJAJC1HiIAZAiUMA0GCSqGSIb3DQEBCwUAMEUxCzAJBg...'],
+  x5t: 'Hf8hIs8Fw8hIs8Fw8hIs8Fw8hIs',
+  'x5t#S256': 'Kz8hIs8Fw8hIs8Fw8hIs8Fw8hIs8Fw8hIs8Fw8hIs8F'
+}
+
+begin
+  jwk = JWT::JWK.import(jwk_hash, nil, x5c: {
+                          root_certificates: trusted_root_certificates, # required
+                          crls: trusted_crls,                           # optional
+                          time: Time.now,                               # optional verification time
+                          algorithms: ['sha256WithRSAEncryption']       # optional allowed certificate signature algorithms
+                        })
+rescue JWT::CertificateChainError
+  # The x5c chain is not trusted, expired, revoked, out of order or
+  # uses a disallowed signature algorithm
+rescue JWT::CertificateKeyMismatchError
+  # The leaf certificate public key does not match the JWK public key parameters
+rescue JWT::CertificateThumbprintError
+  # A certificate thumbprint is malformed or does not match the leaf certificate
+end
+
+# The same options are accepted when importing a whole key set
+jwks = JWT::JWK::Set.new(jwks_hash, x5c: { root_certificates: trusted_root_certificates })
+```
+
 ### Key ID (kid) and JWKs
 
 The key id (kid) generation in the gem is a custom algorithm and not based on any standards.

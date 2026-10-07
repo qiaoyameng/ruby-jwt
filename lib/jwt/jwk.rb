@@ -12,9 +12,13 @@ module JWT
           jwk_kty = key[:kty] || key['kty']
           raise JWT::JWKError, 'Key type (kty) not provided' unless jwk_kty
 
-          return mappings.fetch(jwk_kty.to_s) do |kty|
+          jwk = mappings.fetch(jwk_kty.to_s) do |kty|
             raise JWT::UnsupportedKeyType, "Key type #{kty} not supported"
           end.new(key, params, options)
+
+          validate_certificate_binding!(jwk, options)
+
+          return jwk
         end
 
         mappings.fetch(key.class) do |klass|
@@ -45,6 +49,22 @@ module JWT
           end
         end
       end
+
+      # Validates the x5c certificate chain of a JWK against caller-provided
+      # trust anchors when the :x5c option is given. JWKs without an x5c
+      # member are imported as before. A JWK that fails validation raises
+      # and is therefore never returned or cached for verification.
+      def validate_certificate_binding!(jwk, options)
+        binding_options = options && options[:x5c]
+        return unless binding_options && jwk[:x5c]
+
+        CertificateBinding.new(
+          root_certificates: binding_options[:root_certificates],
+          crls: binding_options[:crls],
+          time: binding_options[:time],
+          algorithms: binding_options[:algorithms]
+        ).validate(jwk)
+      end
     end
   end
 end
@@ -53,3 +73,4 @@ require_relative 'jwk/key_base'
 require_relative 'jwk/ec'
 require_relative 'jwk/rsa'
 require_relative 'jwk/hmac'
+require_relative 'jwk/certificate_binding'
