@@ -6,6 +6,7 @@
 
 **Features:**
 
+- Add `JWT::Claims::TimePolicy`, a reusable time based claim policy supporting a maximum token age, a maximum token lifetime, `nbf`/`iat` vs `exp` relation checks and explicitly required time claims, usable via `JWT.decode` (`verify_time_policy`) and `JWT::EncodedToken` (`time_policy`)
 - Your contribution here
 
 **Fixes and enhancements:**

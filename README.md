@@ -624,6 +624,30 @@ You can specify claims that must be present for decoding to be successful. JWT::
 JWT.decode(token, hmac_secret, true, { required_claims: ['exp'], algorithm: 'HS256' })
 ```
 
+### Time policy
+
+For policies that go beyond verifying `exp`, `nbf` and `iat` individually, `JWT::Claims::TimePolicy` offers a reusable time based policy. It can enforce a maximum token age (seconds since `iat`), a maximum token lifetime (`exp - iat`) and the relations `nbf <= exp` and `iat <= exp`. The claims that must be present are declared explicitly via `required`. The current time is fetched exactly once per verification from an injectable clock, and the `leeway` only relaxes comparisons against the current time, never the token's own maximum lifetime.
+
+```ruby
+policy = {
+  required: %w[iat exp], # claims that must be present
+  max_age: 3600,         # now - iat may not exceed one hour (leeway applies)
+  max_lifetime: 86_400,  # exp - iat may not exceed one day (leeway does not apply)
+  leeway: 30,            # leeway for comparisons against the current time
+  clock: -> { Time.now } # injectable clock, read once per verification
+}
+
+# Via JWT.decode
+JWT.decode(token, hmac_secret, true, { verify_time_policy: policy, algorithm: 'HS256' })
+
+# Via JWT::EncodedToken
+encoded_token = JWT::EncodedToken.new(token)
+encoded_token.verify_signature!(algorithm: 'HS256', key: hmac_secret)
+encoded_token.verify_claims!(time_policy: policy)
+```
+
+Violations of the relations, the maximum age or the maximum lifetime raise `JWT::InvalidTimePolicyError` with a message pointing at the violated relation, for example `nbf (200) is later than exp (150)`.
+
 ### X.509 certificates in x5c header
 
 A JWT signature can be verified using certificate(s) given in the `x5c` header. Before doing that, the trustworthiness of these certificate(s) must be established. This is done in accordance with RFC 5280 which (among other things) verifies the certificate(s) are issued by a trusted root certificate, the timestamps are valid, and none of the certificate(s) are revoked (i.e. being present in the root certificate's Certificate Revocation List).

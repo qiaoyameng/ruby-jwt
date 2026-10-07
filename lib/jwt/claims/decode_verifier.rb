@@ -19,6 +19,7 @@ module JWT
         verify_jti: ->(options) { Claims::JwtId.new(validator: options[:verify_jti]) },
         verify_aud: ->(options) { options[:aud] && Claims::Audience.new(expected_audience: options[:aud]) },
         verify_sub: ->(options) { options[:sub] && Claims::Subject.new(expected_subject: options[:sub]) },
+        verify_time_policy: ->(options) { Claims::TimePolicy.new(**(options[:verify_time_policy].is_a?(Hash) ? options[:verify_time_policy] : {})) },
         required_claims: ->(options) { Claims::Required.new(required_claims: options[:required_claims]) }
       }.freeze
 

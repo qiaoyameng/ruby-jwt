@@ -73,6 +73,11 @@ module JWT
   # The MissingRequiredClaim class is raised when a required claim is missing from the JWT.
   class MissingRequiredClaim < ClaimValidationError; end
 
+  # The InvalidTimePolicyError class is raised when the time claims of a token
+  # violate a JWT::Claims::TimePolicy, for example when 'nbf' is later than
+  # 'exp' or the token lifetime exceeds the allowed maximum.
+  class InvalidTimePolicyError < ClaimValidationError; end
+
   # The JWKError class is raised when there is an error with the JSON Web Key (JWK).
   class JWKError < DecodeError; end
 

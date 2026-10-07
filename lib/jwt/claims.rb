@@ -11,6 +11,7 @@ require_relative 'claims/not_before'
 require_relative 'claims/numeric'
 require_relative 'claims/required'
 require_relative 'claims/subject'
+require_relative 'claims/time_policy'
 require_relative 'claims/verifier'
 
 module JWT
@@ -26,6 +27,7 @@ module JWT
   # aud
   # sub
   # required
+  # time_policy
   # numeric
   module Claims
     # Represents a claim verification error
