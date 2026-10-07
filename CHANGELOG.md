@@ -6,6 +6,7 @@
 
 **Features:**
 
+- Add `JWT::SDJWT.verify`, a standalone SD-JWT verification entry that verifies the issuer signature and rebuilds disclosable object members and array elements from disclosures (SHA-256 only, key-binding JWTs rejected)
 - Your contribution here
 
 **Fixes and enhancements:**

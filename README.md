@@ -325,6 +325,24 @@ encoded_token.verify_signature!(algorithm: 'HS256', key: "secret")
 encoded_token.payload # => {"pay"=>"load"}
 ```
 
+## Selective Disclosure (SD-JWT)
+
+`JWT::SDJWT.verify` verifies an SD-JWT (issuer-signed JWT followed by tilde-separated disclosures) and rebuilds the disclosable claims. The issuer signature is verified with the same arguments as `JWT.decode` before any disclosure is processed. Digests are computed over the raw (still base64url encoded) disclosure strings.
+
+```ruby
+result = JWT::SDJWT.verify(sdjwt, 'secret', true, algorithm: 'HS256')
+result.payload   # issuer claims merged with the disclosed values (hidden positions omitted)
+result.plaintext # only the claims that were plaintext in the issuer-signed JWT
+result.disclosed # [[path, value], ...] pairs for every disclosed member or array element
+result.hidden    # [[path, digest], ...] pairs for digests that remain hidden (withheld or decoy)
+```
+
+Current limitations:
+
+- Only the `sha-256` digest algorithm (`_sd_alg`) is supported, anything else raises `JWT::UnsupportedSdAlgorithmError`.
+- SD-JWTs carrying a key-binding JWT are rejected with `JWT::KeyBindingNotSupportedError`.
+- Duplicate disclosures, disclosures without a matching digest, disclosures overriding plaintext claims and misuse of the reserved `_sd`, `_sd_alg` and `...` claim names are rejected. Claims without a matching disclosure stay hidden and are never guessed.
+
 ## Claims
 
 JSON Web Token defines some reserved claim names and defines how they should be

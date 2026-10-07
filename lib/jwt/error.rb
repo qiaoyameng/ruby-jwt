@@ -78,4 +78,36 @@ module JWT
 
   # Raised when a JWK uses a key type (kty) that this library does not support.
   class UnsupportedKeyType < JWKError; end
+
+  # The SDJWTError class is the base class for all SD-JWT (Selective Disclosure
+  # JWT) related errors.
+  class SDJWTError < TokenError; end
+
+  # The UnsupportedSdAlgorithmError class is raised when the SD-JWT digest
+  # algorithm (_sd_alg) is not supported.
+  class UnsupportedSdAlgorithmError < SDJWTError; end
+
+  # The KeyBindingNotSupportedError class is raised when the SD-JWT carries a
+  # key-binding JWT, which this version does not accept.
+  class KeyBindingNotSupportedError < SDJWTError; end
+
+  # The MalformedDisclosureError class is raised when a disclosure cannot be
+  # decoded or does not follow the SD-JWT disclosure format.
+  class MalformedDisclosureError < SDJWTError; end
+
+  # The DuplicateDisclosureError class is raised when the same disclosure (or
+  # digest) is provided or referenced more than once.
+  class DuplicateDisclosureError < SDJWTError; end
+
+  # The OrphanDisclosureError class is raised when a disclosure digest cannot
+  # be matched to any digest in the issuer-signed JWT.
+  class OrphanDisclosureError < SDJWTError; end
+
+  # The ClaimCollisionError class is raised when a disclosed claim would
+  # override a claim already present in plaintext.
+  class ClaimCollisionError < SDJWTError; end
+
+  # The ReservedClaimError class is raised when reserved SD-JWT claim names
+  # (_sd, _sd_alg, ...) are used where they are not allowed.
+  class ReservedClaimError < SDJWTError; end
 end
