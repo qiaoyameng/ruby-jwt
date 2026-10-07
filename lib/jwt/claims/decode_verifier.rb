@@ -11,6 +11,12 @@ module JWT
     #
     # @api private
     module DecodeVerifier
+      TIME_POLICY_KEY = :time_policy
+      LEGACY_TIME_VERIFIERS = %i[verify_expiration verify_not_before verify_iat].freeze
+
+      private_constant(:TIME_POLICY_KEY)
+      private_constant(:LEGACY_TIME_VERIFIERS)
+
       VERIFIERS = {
         verify_expiration: ->(options) { Claims::Expiration.new(leeway: options[:exp_leeway] || options[:leeway]) },
         verify_not_before: ->(options) { Claims::NotBefore.new(leeway: options[:nbf_leeway] || options[:leeway]) },
@@ -27,12 +33,31 @@ module JWT
       class << self
         # @api private
         def verify!(payload, options)
-          VERIFIERS.each do |key, verifier_builder|
-            next unless options[key] || options[key.to_s]
+          time_policy = options[TIME_POLICY_KEY]
+          verify_time_policy!(payload, time_policy)
 
+          each_enabled_verifier(options, time_policy) do |verifier_builder|
             verifier_builder&.call(options)&.verify!(context: VerificationContext.new(payload: payload))
           end
           nil
+        end
+
+        private
+
+        def verify_time_policy!(payload, time_policy)
+          return unless time_policy
+
+          policy = Claims::TimePolicy.build(time_policy)
+          policy.verify!(context: VerificationContext.new(payload: payload))
+        end
+
+        def each_enabled_verifier(options, time_policy)
+          VERIFIERS.each do |key, verifier_builder|
+            next if time_policy && LEGACY_TIME_VERIFIERS.include?(key)
+            next unless options[key] || options[key.to_s]
+
+            yield(verifier_builder)
+          end
         end
       end
     end

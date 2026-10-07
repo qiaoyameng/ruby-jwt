@@ -195,7 +195,7 @@ module JWT
     def claims_options(options)
       return DEFAULT_CLAIMS if options.first.nil?
 
-      options
+      options.first.is_a?(Claims::TimePolicy) ? [{ time_policy: options.first }] : options
     end
 
     def decode_payload

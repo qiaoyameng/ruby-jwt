@@ -4,6 +4,12 @@ module JWT
   module Claims
     # @api private
     module Verifier
+      POLICY_VERIFIERS = %i[time_policy time].freeze
+      LEGACY_TIME_VERIFIERS = %i[exp nbf iat].freeze
+
+      private_constant(:POLICY_VERIFIERS)
+      private_constant(:LEGACY_TIME_VERIFIERS)
+
       VERIFIERS = {
         exp: ->(options) { Claims::Expiration.new(leeway: options.dig(:exp, :leeway)) },
         nbf: ->(options) { Claims::NotBefore.new(leeway: options.dig(:nbf, :leeway)) },
@@ -14,7 +20,9 @@ module JWT
         sub: ->(options) { Claims::Subject.new(expected_subject: options[:sub]) },
         crit: ->(options) { Claims::Crit.new(expected_crits: options[:crit]) },
         required: ->(options) { Claims::Required.new(required_claims: options[:required]) },
-        numeric: ->(*)        { Claims::Numeric.new }
+        numeric: ->(*)        { Claims::Numeric.new },
+        time_policy: ->(options) { Claims::TimePolicy.build(options[:time_policy]) },
+        time: ->(options) { Claims::TimePolicy.build(options[:time]) }
       }.freeze
 
       private_constant(:VERIFIERS)
@@ -44,11 +52,24 @@ module JWT
         private
 
         def iterate_verifiers(*options)
-          options.each do |element|
+          requests = verifier_requests(options)
+          skip_legacy_time_verifiers = requests.any? { |verifier, _options| POLICY_VERIFIERS.include?(verifier) }
+
+          requests.each do |verifier, verifier_options|
+            next if skip_legacy_time_verifiers && LEGACY_TIME_VERIFIERS.include?(verifier)
+
+            yield(verifier, verifier_options)
+          end
+        end
+
+        def verifier_requests(options)
+          options.flat_map do |element|
             if element.is_a?(Hash)
-              element.each_key { |key| yield(key, element) }
+              element.keys.map { |key| [key, element] }
+            elsif element.is_a?(Claims::TimePolicy)
+              [[:time_policy, { time_policy: element }]]
             else
-              yield(element, {})
+              [[element, {}]]
             end
           end
         end
