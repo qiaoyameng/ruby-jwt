@@ -78,4 +78,34 @@ module JWT
 
   # Raised when a JWK uses a key type (kty) that this library does not support.
   class UnsupportedKeyType < JWKError; end
+
+  # The SDJWTError class is the base class for all SD-JWT related errors.
+  class SDJWTError < DecodeError; end
+
+  # The MalformedSDJWTError class is raised when the SD-JWT structure is invalid.
+  class MalformedSDJWTError < SDJWTError; end
+
+  # The UnsupportedDigestAlgorithm class is raised when the SD-JWT digest
+  # algorithm (_sd_alg) is not supported.
+  class UnsupportedDigestAlgorithm < SDJWTError; end
+
+  # The MalformedDisclosureError class is raised when a disclosure cannot be
+  # parsed or does not match the structure expected for its digest.
+  class MalformedDisclosureError < SDJWTError; end
+
+  # The DuplicateDisclosureError class is raised when the same disclosure is
+  # provided or consumed more than once.
+  class DuplicateDisclosureError < SDJWTError; end
+
+  # The OrphanDisclosureError class is raised when a disclosure digest does not
+  # match any digest in the SD-JWT.
+  class OrphanDisclosureError < SDJWTError; end
+
+  # The DisclosedClaimConflictError class is raised when a disclosure would
+  # overwrite an existing claim or uses a reserved claim name.
+  class DisclosedClaimConflictError < SDJWTError; end
+
+  # The KeyBindingNotSupportedError class is raised when the input contains a
+  # key binding JWT, which is not supported.
+  class KeyBindingNotSupportedError < SDJWTError; end
 end

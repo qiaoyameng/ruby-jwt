@@ -645,6 +645,35 @@ rescue JWT::TokenError
 end
 ```
 
+## Selective Disclosure JWT (SD-JWT)
+
+`JWT::SDJWT.verify` verifies the issuer signature of an SD-JWT (using the
+same key and options as `JWT.decode`) and applies the given disclosures to
+reconstruct the selectively disclosable claims. Only the SHA-256 digest
+algorithm (`_sd_alg: "sha-256"`) is supported and inputs carrying a key
+binding JWT are rejected.
+
+```ruby
+# disclosure = base64url(JSON ["salt", "given_name", "John"])
+# token payload: { "sub" => "user-1", "_sd" => ["<digest of disclosure>"] }
+result = JWT::SDJWT.verify(token, [disclosure], 'secret', algorithm: 'HS256')
+
+result.payload    # => { "sub" => "user-1", "given_name" => "John" }
+result.plaintext  # claims as decoded from the issuer JWT, before disclosures
+result.disclosed  # only the values reconstructed from disclosures
+result.hidden     # positions that remain concealed (JWT::SDJWT::HiddenValue)
+```
+
+`JWT::SDJWT.verify_presentation` accepts the tilde separated presentation
+form (`jwt~disclosure~...~`) and raises `JWT::KeyBindingNotSupportedError`
+when a key binding JWT is attached.
+
+Concealed positions are never fabricated: hidden object members are absent
+from `result.payload` and hidden array elements are marked with
+`JWT::SDJWT::HiddenValue`. Duplicate disclosures, disclosures without a
+matching digest, disclosures overwriting existing claims and reserved claim
+names (`_sd`, `_sd_alg`, `...`) all raise subclasses of `JWT::SDJWTError`.
+
 ## JSON Web Key (JWK)
 
 JWK is a JSON structure representing a cryptographic key. This gem currently supports RSA, EC, OKP and HMAC keys. OKP support requires [RbNaCl](https://github.com/RubyCrypto/rbnacl) and currently only supports the Ed25519 curve.
