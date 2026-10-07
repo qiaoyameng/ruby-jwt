@@ -740,6 +740,43 @@ jwks = JWT::JWK::Set.new(jwks_hash)
 jwks_hash = jwks.export
 ```
 
+### Binding JWKs to X.509 certificates
+
+A JWK may carry an `x5c` certificate chain next to its public key parameters
+(`n`/`e` for RSA, `crv`/`x`/`y` for EC) and the `x5t`/`x5t#S256` certificate
+thumbprints. To make sure all of this material describes the same key, an
+optional certificate binding check can be enabled on import via the
+`certificate_binding` option.
+
+The check verifies the certificate chain against caller provided trust roots
+(a root certificate shipped inside `x5c` is **not** trusted by itself),
+confirms that the leaf certificate public key matches the JWK public key
+parameters and that any present thumbprints match the digest of the leaf
+certificate. Everything is verified locally; no certificate URLs are accessed.
+A JWK that fails the check is rejected and never imported into a key set.
+
+```ruby
+jwk = JWT::JWK.import(jwk_hash, nil, certificate_binding: {
+  root_certificates: [trusted_root_certificate], # required trust anchors
+  crls: [crl],                                   # optional, enables revocation checks
+  time: Time.now,                                # optional verification time
+  allowed_algorithms: ['sha256WithRSAEncryption'] # optional certificate signature algorithms
+})
+```
+
+Failures are reported with distinguishable errors, all subclasses of
+`JWT::CertificateBindingError`:
+
+- `JWT::CertificateChainError` - the chain is unparseable, out of order, not
+  trusted, expired/revoked or uses a disallowed signature algorithm.
+- `JWT::CertificateKeyMismatchError` - the leaf certificate public key does
+  not match the JWK public key parameters.
+- `JWT::CertificateThumbprintError` - an `x5t`/`x5t#S256` thumbprint is
+  malformed or does not match the leaf certificate.
+
+JWKs without an `x5c` parameter are imported as before, with or without the
+option present.
+
 ### Key ID (kid) and JWKs
 
 The key id (kid) generation in the gem is a custom algorithm and not based on any standards.

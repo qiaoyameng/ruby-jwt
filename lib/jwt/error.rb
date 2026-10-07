@@ -78,4 +78,21 @@ module JWT
 
   # Raised when a JWK uses a key type (kty) that this library does not support.
   class UnsupportedKeyType < JWKError; end
+
+  # The CertificateBindingError class is raised when a JWK cannot be bound to
+  # the X.509 certificate material carried in its "x5c" parameter.
+  class CertificateBindingError < JWKError; end
+
+  # Raised when the certificate chain in a JWK "x5c" parameter cannot be
+  # verified against the caller provided trust roots, CRLs, verification time
+  # or allowed signature algorithms.
+  class CertificateChainError < CertificateBindingError; end
+
+  # Raised when the public key of the leaf certificate does not match the
+  # public key parameters of the JWK.
+  class CertificateKeyMismatchError < CertificateBindingError; end
+
+  # Raised when a certificate thumbprint ("x5t" or "x5t#S256") is malformed or
+  # does not match the digest of the leaf certificate.
+  class CertificateThumbprintError < CertificateBindingError; end
 end

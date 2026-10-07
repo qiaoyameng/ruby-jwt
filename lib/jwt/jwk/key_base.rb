@@ -20,6 +20,8 @@ module JWT
         # Make sure the key has a kid
         kid_generator = options[:kid_generator] || ::JWT.configuration.jwk.kid_generator
         self[:kid] ||= kid_generator.new(self).generate
+
+        verify_certificate_binding!(options[:certificate_binding])
       end
 
       def kid
@@ -67,6 +69,17 @@ module JWT
       end
 
       attr_reader :parameters
+
+      private
+
+      # Optional binding check between the JWK and the certificate material in
+      # its "x5c" parameter. Raises (and thus prevents the JWK from being
+      # created and cached for verification) when the binding is invalid.
+      def verify_certificate_binding!(binding_options)
+        return unless binding_options
+
+        CertificateBinding.new(**binding_options.transform_keys(&:to_sym)).verify!(self)
+      end
     end
   end
 end

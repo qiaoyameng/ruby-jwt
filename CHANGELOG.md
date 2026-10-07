@@ -7,6 +7,7 @@
 **Features:**
 
 - Your contribution here
+- Add an optional certificate binding check for JWK imports via the `certificate_binding` option, verifying the `x5c` chain against caller provided trust roots and matching the leaf certificate against the JWK public key parameters and `x5t`/`x5t#S256` thumbprints
 
 **Fixes and enhancements:**
 
