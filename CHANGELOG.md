@@ -7,6 +7,7 @@
 **Features:**
 
 - Your contribution here
+- Add `JWT::EncodedToken#verify_result` returning an immutable, deep frozen verification result bound to the verified signature bytes, the verification policy and the time of verification
 
 **Fixes and enhancements:**
 

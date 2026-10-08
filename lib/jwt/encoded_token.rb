@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'encoded_token/claims_context'
+require_relative 'encoded_token/verify_result'
 
 module JWT
   # Represents an encoded JWT token
@@ -13,7 +14,7 @@ module JWT
   #   encoded_token = JWT::EncodedToken.new(token.jwt)
   #   encoded_token.verify_signature!(algorithm: 'HS256', key: 'secret')
   #   encoded_token.payload # => {'pay' => 'load'}
-  class EncodedToken
+  class EncodedToken # rubocop:disable Metrics/ClassLength
     DEFAULT_CLAIMS = [:exp].freeze
 
     private_constant(:DEFAULT_CLAIMS)
@@ -127,6 +128,42 @@ module JWT
         (claims.is_a?(Array) ? valid_claims?(*claims) : valid_claims?(claims))
     end
 
+    # Verifies the token signature and claims, returning an immutable
+    # {VerifyResult} bound to the verified signature bytes, the verification
+    # policy and the time of verification.
+    #
+    # The returned result snapshots the token state at verification time.
+    # Later changes to the token (for example replacing a detached payload),
+    # to the original token string, or to any object passed to the verifier
+    # do not affect the returned result. A failed verification returns a new
+    # failed result on every call and never reuses a previous result.
+    #
+    # @example
+    #  result = encoded_token.verify_result(signature: { algorithm: 'HS256', key: 'secret' }, claims: [:exp])
+    #  result.verified?          # => true
+    #  result.claim_verified?(:exp) # => true
+    #  result.payload            # => {'pay' => 'load'} (deep frozen)
+    #
+    # @param signature [Hash] the parameters for signature verification (see {#verify_signature!}).
+    #   May also be given as top-level keyword arguments.
+    # @param claims [Array<Symbol>, Hash] the claims to verify (see {#verify_claims!}).
+    # @return [VerifyResult] the immutable result of the verification.
+    def verify_result(signature: nil, claims: nil, **signature_options)
+      verified_at = Time.now.freeze
+      options = (signature || {}).merge(signature_options)
+
+      raise ArgumentError, 'Provide either key or key_finder, not both or neither' if options[:key].nil? == options[:key_finder].nil?
+
+      verifier = verify_result_signature(options[:algorithm], options[:key], options[:key_finder])
+      return VerifyResult.failure(error: JWT::VerificationError.new('Signature verification failed'), verified_at: verified_at) unless verifier
+
+      claims.is_a?(Array) ? verify_claims!(*claims) : verify_claims!(claims)
+
+      build_verify_result(verifier, claims, verified_at)
+    rescue JWT::Error => e
+      VerifyResult.failure(error: e, verified_at: verified_at)
+    end
+
     # Verifies the signature of the JWT token.
     #
     # @param algorithm [String, Array<String>, Object, Array<Object>] the algorithm(s) to use for verification.
@@ -196,6 +233,35 @@ module JWT
       return DEFAULT_CLAIMS if options.first.nil?
 
       options
+    end
+
+    def result_claim_names(claims)
+      options = claims.is_a?(Array) ? claims : [claims]
+      options = DEFAULT_CLAIMS if options.first.nil?
+      options.flat_map { |element| element.is_a?(Hash) ? element.keys : element }.map(&:to_sym)
+    end
+
+    def verify_result_signature(algorithm, key, key_finder)
+      keys      = Array(key || key_finder.call(self))
+      verifiers = JWA.create_verifiers(algorithms: algorithm, keys: keys, preferred_algorithm: header['alg'])
+
+      raise JWT::VerificationError, 'No algorithm provided' if verifiers.empty?
+
+      verifiers.find { |candidate| candidate.verify(data: signing_input, signature: signature) }.tap do |verified|
+        @signature_verified = !verified.nil?
+        @claims_verified = false unless verified
+      end
+    end
+
+    def build_verify_result(verifier, claims, verified_at)
+      VerifyResult.success(jwt: jwt,
+                           header: header,
+                           payload: decoded_payload,
+                           signature: signature,
+                           signing_input: signing_input,
+                           algorithm: verifier.jwa.alg,
+                           verified_claims: result_claim_names(claims),
+                           verified_at: verified_at)
     end
 
     def decode_payload

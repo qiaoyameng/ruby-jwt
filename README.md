@@ -251,6 +251,26 @@ encoded_token.payload # => { 'exp'=>1234, 'jti'=>'1234", 'sub'=>'my-subject' }
 encoded_token.header # {'kid'=>'hmac', 'alg'=>'HS256'}
 ```
 
+The `JWT::EncodedToken#verify_result` method verifies the signature and claims in one go and returns an immutable `JWT::EncodedToken::VerifyResult`. The result snapshots the token state at verification time: the signature bytes, the signing input, the header, the payload, the algorithm that matched and the claim checks that were performed are all deep frozen and bound to the time of verification. Later changes to the token, the original token string or any object passed to the verifier do not affect the returned result.
+
+```ruby
+encoded_token = JWT::EncodedToken.new(token.jwt)
+result = encoded_token.verify_result(signature: { algorithm: 'HS256', key: 'secret' }, claims: [:exp])
+
+result.verified? # => true
+result.payload # => { 'exp'=>1234, 'jti'=>'1234", 'sub'=>'my-subject' } (deep frozen)
+result.algorithm # => 'HS256'
+result.verified_claims # => [:exp]
+result.claim_verified?(:exp) # => true
+result.claim_verified?(:iss) # => false (the iss claim was not checked)
+result.signature_digest # => SHA-256 hex digest of the verified signature bytes
+result.verified_at # => the time the verification was performed
+
+failure = encoded_token.verify_result(signature: { algorithm: 'HS256', key: 'wrong_secret' })
+failure.verified? # => false
+failure.error # => JWT::VerificationError
+```
+
 A JWK can be used to sign and verify the token if it's possible to derive the signing algorithm from the key.
 
 ```ruby
