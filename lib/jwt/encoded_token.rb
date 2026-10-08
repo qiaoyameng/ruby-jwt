@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'encoded_token/claims_context'
+require_relative 'verify_result'
 
 module JWT
   # Represents an encoded JWT token
@@ -13,7 +14,7 @@ module JWT
   #   encoded_token = JWT::EncodedToken.new(token.jwt)
   #   encoded_token.verify_signature!(algorithm: 'HS256', key: 'secret')
   #   encoded_token.payload # => {'pay' => 'load'}
-  class EncodedToken
+  class EncodedToken # rubocop:disable Metrics/ClassLength
     DEFAULT_CLAIMS = [:exp].freeze
 
     private_constant(:DEFAULT_CLAIMS)
@@ -127,6 +128,36 @@ module JWT
         (claims.is_a?(Array) ? valid_claims?(*claims) : valid_claims?(claims))
     end
 
+    # Verifies the token signature and claims, returning an immutable result
+    # bound to the verified signature bytes, the verification policy and the
+    # moment of verification.
+    #
+    # By default it verifies the 'exp' claim.
+    #
+    # @example
+    #  result = encoded_token.verify_result(signature: { algorithm: 'HS256', key: 'secret' }, claims: [:exp])
+    #  result.payload # => {'pay' => 'load'} (frozen)
+    #
+    # @param signature [Hash] the parameters for signature verification (see {#verify_signature!}).
+    # @param claims [Array<Symbol>, Hash] the claims to verify (see {#verify_claims!}).
+    # @return [JWT::VerifyResult] an immutable snapshot of the successful verification.
+    # @raise [JWT::Error] if the signature or claim verification fails.
+    def verify_result(signature:, claims: nil)
+      verify_signature!(**signature)
+      claims.is_a?(Array) ? verify_claims!(*claims) : verify_claims!(claims)
+
+      VerifyResult.new(
+        header: header,
+        payload: decoded_payload,
+        signature: self.signature,
+        signing_input: signing_input,
+        jwt: jwt,
+        verified_claims: verified_claim_names(claims),
+        signature_algorithm: signature[:algorithm],
+        verified_at: Time.now
+      )
+    end
+
     # Verifies the signature of the JWT token.
     #
     # @param algorithm [String, Array<String>, Object, Array<Object>] the algorithm(s) to use for verification.
@@ -196,6 +227,12 @@ module JWT
       return DEFAULT_CLAIMS if options.first.nil?
 
       options
+    end
+
+    def verified_claim_names(claims)
+      claims_options(claims.is_a?(Array) ? claims : [claims]).flat_map do |option|
+        option.is_a?(Hash) ? option.keys : [option]
+      end
     end
 
     def decode_payload

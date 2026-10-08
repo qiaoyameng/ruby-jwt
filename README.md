@@ -251,6 +251,22 @@ encoded_token.payload # => { 'exp'=>1234, 'jti'=>'1234", 'sub'=>'my-subject' }
 encoded_token.header # {'kid'=>'hmac', 'alg'=>'HS256'}
 ```
 
+The `JWT::EncodedToken#verify_result` method verifies the signature and claims in one go and returns an immutable `JWT::VerifyResult` snapshot. The result is bound to the exact signature bytes, the verification policy and the moment of verification: the header, payload and all nested hashes, arrays and strings are deeply frozen, so later mutations of the token, the original token string or any previously returned data cannot alter the verified values.
+
+```ruby
+encoded_token = JWT::EncodedToken.new(token.jwt)
+result = encoded_token.verify_result(signature: {algorithm: 'HS256', key: "secret"}, claims: [:exp])
+
+result.payload            # => { 'exp'=>1234, 'jti'=>'1234", 'sub'=>'my-subject' } (frozen)
+result.header             # => {'kid'=>'hmac', 'alg'=>'HS256'} (frozen)
+result.signature          # => the verified signature bytes (frozen)
+result.signature_digest   # => SHA256 hex digest of the verified signature bytes
+result.verified_at        # => the moment the verification was performed
+result.verified_claims    # => [:exp]
+result.claim_verified?(:exp) # => true
+result.claim_verified?(:nbf) # => false (the nbf claim was only parsed, not verified)
+```
+
 A JWK can be used to sign and verify the token if it's possible to derive the signing algorithm from the key.
 
 ```ruby

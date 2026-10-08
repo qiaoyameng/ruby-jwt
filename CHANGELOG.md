@@ -6,6 +6,7 @@
 
 **Features:**
 
+- Add `JWT::EncodedToken#verify_result` returning an immutable `JWT::VerifyResult` bound to the verified signature bytes, the verification policy and the verification time
 - Your contribution here
 
 **Fixes and enhancements:**
